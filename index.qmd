@@ -1,283 +1,208 @@
 ---
-title: "Weekly Summary 8"
+title: "Alvaro's EDA"
 author: "Alvaro Tapia"
 title-block-banner: true
 title-block-style: default
 toc: true
-#format: html
-format: pdf
+format: html
+#format: pdf
 ---
 
----
+### Creating EDA
 
 
-## Tuesday, March 14
+##### Loading libraries and reading in data for subways and buses
 
-::: {.callout-important}
-## TIL
-
-In this weekday, we finished to wrap up what we did on week 7 by implementing functions for the caret package and using caret to perform LASSO regression as a bias-variance tradeoff. We used this class more to talk about the project and about caret and Lasso.
-
-Today we learned the following concepts:
-
-1. We learned how to use the caret package (since on week 7 we undersood how they worked without a predefined function)
-
-1. We learned how to use caret for LASSO (since on week 7 we undersood how they worked without a predefined function)
-:::
-
-::: {.callout-note}
-## Please Read
-
-Please note that the functions that we created on week 7 but were also viewed very quickcly at the beggining of the class are not included here because I already stated them with more detail on week 7. The functions were: "cv_mspe", make_folds", "train", "test", and "fold".
-:::
-
-```{R results='hide'}
-#Libraries to be used
-library(ggplot2)
-library(knitr)
-library(magrittr)
+```{R}
+library(dplyr)
 library(readr)
 library(tidyr)
+library(knitr)
+library(readxl)
+library(lubridate)
+library(gridExtra)
 library(ggplot2)
-library(dplyr)
-library(purrr)
-library(cowplot)
-library(ISLR2)
-library(torch)
-library(caret)
-library(glmnet)
-```
-
-1. We first started the week by learning about the caret package which it would help us to define the training control for cross validation. It is important to remember from las week that Cross Validation is a technique for evaluating ML models by training several ML models on subsets of the available input data and evaluating them on the complementary subset of the data.
-
-We retrieved the boston dataset for this part:
-
-```{R}
-attach(Boston)
-df <- Boston %>% drop_na()
-head(df)
-# k <- 5
-# fold <- sample(1:nrow(df), nrow(df)/5)
-# fold
-# train <- df %>% slice(-fold)
-# test <- df %>% slice(fold)
-```
-
-Doing the training control for the dataset:
-
-```{R}
-ctrl <- trainControl(method = "cv", number = 5)
-model <- train(medv ~ ., data = df, method = "lm", trControl = ctrl)
-summary(model)
-```
-
-We learned how to display the predictions of the model:
-
-```{R}
-predictions <- predict(model, df)
-predictions
-```
-
-2. Then, we understood how to use caret for LASSO as a bias-variance tradeoff. It is important to remember that LASSO is a regression analysis method that performs both variable selection and regularization in order to enhance the prediction accuracy and interpretability of the resulting statistical model.
-
-Here it is showed how we can define the tuning grid and also shows how the model is trained using Lasso regression with cross-validation:
-
-```{R}
-ctrl <- trainControl(method = "cv", number = 5)
-
-#Defining the tuning grid
-grid <- expand.grid(alpha = 1, lambda = seq(0, 0.1, by = 0.001))
-
-#Train the model using Lasso regression with cross-validation
-lasso_fit <- train(
-  medv ~.,
-  data = df,
-  method = "glmnet",
-  trControl = ctrl,
-  tuneGrid = grid,
-  standardize = TRUE,
-  family = "gaussian"
-)
-
-plot(lasso_fit)
 ```
 
 
-## Thursday, March 16
-
-::: {.callout-important}
-## TIL
-
-In this weekday we learned a lot of things. We first started learning about what logistic regression, and odds and odds ratios are, and how to use them. We performed different examples in class that were very helpul to understand their purpose and methodology. We also understood the steps to perform Logistic Regression and finally we learend about the concept of logistic loss function and what are its functions.
-
-Today, I learnt the following concepts in class:
-
-1. Logistic Regression
-1. Odds and odds ratios
-1. Concept of Logistic Regression Model
-1. How to create examples using logistic regression
-1. How to use the learned concepts in a real life situation (breast cancer example)
-1. Learned the steps of Logistic Regression
-1. Finally understood the theoric concept of Logistic Loss Function
-:::
-
-1. First, we learned about the need for logistic regression, it was explained that when we have a binary response variable and we want to model the relationship between the predictor and response variables, we then use logistic regression in order to generalize linear model specifically designed for binary response variables. We learned that the main idea of LR is to transform the predicted values from linear regression so that they represent probabilities.
-
-2. We then learned about Odds and odds ratios which are the odds of an event ocurring. Odds ratios are a way to compare the odds of an event ocurring between two groups.
-
-Below I'll use some code implemented on class in order to show the two topics learned described above.
-
-
 ```{R}
-set.seed(123)
-binary_var <- rbinom(100, size = 1, prob = 0.6)
-group_var <- sample(1:2, size = 100, replace = TRUE)
-odds_group1 <- sum(binary_var[group_var == 1]) / sum(!binary_var[group_var == 1])
-odds_group2 <- sum(binary_var[group_var == 2]) / sum(!binary_var[group_var == 2])
-odds_ratio <- odds_group1 / odds_group2
-cat(paste("Odds group 1:", round(odds_group1, 2), "\n"))
-cat(paste("Odds group 2:", round(odds_group2, 2), "\n"))
-cat(paste("Odds group:", round(odds_ratio, 2), "\n"))
+url1 <- "MTA_Daily_Ridership_Data__Beginning_2020.csv"
+df <- read_csv(url1)
 ```
 
-Representation of the odds ratios and LR:
-$$
-\begin{aligned}
-log-odds(p(x)) = b_0 +b_1 x\\
-p(x) = \frac{1}{1 + \exp(\beta_0 + \beta_1 x)}
-\end{aligned}
-$$
 
-
-3. After that, we then learned the concept of the logistic regression model. This is a type of generalized linear model that models the probability of an event occurring as a function of one or more predictor variables. We understood that the logistic regression model uses logistic function which is also known as sigmoid function to model the relationship between the predictor variables and the probability of the event ocurring.
-
-Here it is shown how the sigmoid function is represented and works:
+##### Creating variable specific data frames
 
 ```{R}
-sigmoid <- \(x) 1 / (1 + exp(-x))
-curve(sigmoid, -7, 7, ylab="sigmoid(x)")
-```
-
-4. We then started doing some logistic regression examples, also using the glm() function which fits the generalized linear model which includes logistic regression as a special case. Represented like this:
-
-```{R}
-set.seed(123)
-x <- rnorm(1000)
-y <- rbinom(1000, size = 1, prob = exp(0.5 + 0.8 * x)/(1 + exp(0.5 + 0.8 * x)))
-y
+# subways data frame 
+sub_df <-
+  df %>%
+  select('Date', 'Subways: Total Estimated Ridership', 'Subways: % of Comparable Pre-Pandemic Day') %>%
+  na.omit %>%
+  filter(!grepl("2023$", Date),
+         !grepl("2020$", Date)) %>%
+  mutate("Date" = mdy(Date),
+         "Day of Week" = weekdays(Date)) %>%
+  select('Day of Week', 'Date', 'Subways: Total Estimated Ridership', 'Subways: % of Comparable Pre-Pandemic Day')
+sub_df
 ```
 
 ```{R}
-# Modeling using glm()
-
-model <- glm(y ~ x, family = binomial())
-summary(model)
-```
-
-With this we also learned how to find the intercept, predict the model, and create a boxplot with it:
-
-```{R}
-x_test <- -5.5
-sigmoid(coef(model)[1] + coef(model)[2] * x_test)
-```
-
-```{R}
-predict(model, newdata = data.frame(x=x_test), type="response")
+# buses data frame
+bus_df <-
+  df %>%
+  select('Date', 'Buses: Total Estimated Ridership', 'Buses: % of Comparable Pre-Pandemic Day') %>%
+  na.omit() %>%
+  filter(!grepl("2023$", Date),
+         !grepl("2020$", Date)) %>%
+  mutate("Date" = mdy(Date),
+         "Day of Week" = weekdays(Date)) %>%
+  select('Day of Week', 'Date', 'Buses: Total Estimated Ridership', 'Buses: % of Comparable Pre-Pandemic Day')
+bus_df
 ```
 
 ```{R}
-new_x <- seq(-2, 2, by = 0.1)
-p1 <- predict(model, data.frame(x=new_x))
-p2 <- predict(model, data.frame(x=new_x), type="response")
-boxplot(p1, p2)
+##### Reading in data for weather
+weather_url <- "weather_nyc_2021_2022.xlsx"
+weather_df <- read_excel(weather_url)
+head(weather_df)
 ```
 
-5. Another example that we implemented in order to understand this topic was to use logistic regression for breast cancer.
+##### Reading in data for weather
 
-First we needed to retrieve the breast cancer data from UCI website:
 
 ```{R}
-url <- "https://archive.ics.uci.edu/ml/machine-learning-databases/breast-cancer-wisconsin/wdbc.data"
-df <- read.csv(url, sep = ",")
-head(df)
+url2 <- "weather_nyc_2021_2022.xlsx"
+weather_df <- read_excel(url2)
+head(weather_df)
 ```
 
-We started by fitting a logistic regression model to the breast cancer dataset using glm() function. After that, we created a model summary where we saw that the coefficients represent the log odds ratio of the response variable for each predictor. We can exponentiate the coefficients to get the offs ratios:
+##### Data wrangling weather data frame
+
 
 ```{R}
-new_patient <- data.frame(matrix(rnorm(30), nrow = 1))
-names(new_patient) <- paste0("feat", 1:30)
-predict(model, newdata = new_patient, type = "response")
+weather_df <-
+  weather_df %>%
+  select('datetime', 'tempmax', 'tempmin', 'temp', 'precip', 'snow', 'snowdepth', 'windspeed', 'conditions', 'icon')
+head(weather_df)
 ```
 
-6. After that, since we have torch, we learned how to perform logistic regression using the following steps:
 
-- Convert the data to tensor
-- Define the model architecture
-- Define the loss function
-- Define the optimizer
-- Train the model
-- Make predictions
+##### Joining the weather data frame with both the bus and subway data frame
 
 ```{R}
-X <- cbind(x)
-x_tensor <- torch_tensor(X, dtype = torch_float())
-y_tensor <- torch_tensor(y, dtype = torch_float())
+sub_df <-
+  sub_df %>%
+  full_join(weather_df, by = c("Date" = "datetime"))
+sub_df
 ```
 
 ```{R}
-module <- nn_module(
-  "logistic_regression",
-  initialize = function() {
-    self$fc1 <- nn_linear(1, 1)
-    self$fc2 <- nn_sigmoid()
-  },
-  forward = function(x) {
-    x %>%
-      self$fc1() %>%
-      self$fc2()
-  }
-)
-
-logistic_reg <- module()
-
-y_pred <- logistic_reg(x_tensor)
-y_pred %>% head()
+bus_df <-
+  bus_df %>%
+  full_join(weather_df, by = c("Date" = "datetime"))
+bus_df
 ```
 
-After that, then we found the appropriate loss function
+
+### ALVARO EDA
+
+Doing an all time estimated ridership for buses and subways
+
 
 ```{R}
-L <- function(x, y, model) {
-  y_pred <- model(x)
-  return(mean((y_pred - y)^2))
-}
-
-logistic_reg_1 <- module()
-L(x_tensor, y_tensor, logistic_reg)
+ggplot() +
+  geom_line(data = sub_df, aes(x = Date, y = `Subways: Total Estimated Ridership`), color = "steelblue", size = 1) +
+  geom_line(data = bus_df, aes(x = Date, y = `Buses: Total Estimated Ridership`), color = "darkorange", size = 1) +
+  scale_y_continuous(labels = scales::comma, expand = c(0, 0, 0.05, 0)) +
+  labs(title = "Ridership for Subways and Buses",
+       subtitle = "Comparison of estimated ridership for subways and buses",
+       x = "Date",
+       y = "Total Estimated Ridership") +
+  theme_minimal() +
+  theme(plot.title = element_text(size = 18, face = "bold"),
+        plot.subtitle = element_text(size = 14),
+        axis.title = element_text(size = 14),
+        axis.text = element_text(size = 12),
+        legend.title = element_blank(),
+        legend.text = element_text(size = 10),
+        plot.caption = element_text(hjust = 1, size = 10, color = "gray50"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank())
 ```
 
-As a last part we understood how to find the optimization by defining an optimizer and epochs:
+Since we have already done the correlation between temperature and precipitation, I'll be doing for snow and snowdepth.
+
+For subway and bus ridership vs. snow and also creating a trend line:
 
 ```{R}
-optimizer <- optim_adam(logistic_reg_1$parameters, lr=0.0001)
-
-epochs <- 1000
-for (i in 1:epochs){
-  loss <- L(x_tensor, y_tensor, logistic_reg_1)
-  optimizer$zero_grad()
-  loss$backward()
-  optimizer$step()
-  if (i %% 1000 == 0) {
-    cat(sprintf("Epoch: %d, Loss: %.4f\n", i, loss$item()))
-  }
-}
-
-logistic_reg_1$parameters
+#Subway vs. snow
+ggplot(data = sub_df, aes(x = snow, y = `Subways: Total Estimated Ridership`)) +
+  geom_point(color = "black", alpha = 0.5, size = 2) +
+  scale_color_gradient(low = "red", high = "green") +
+  labs(title = "Subway Ridership vs Snow",
+       x = "Snow (in inches)",
+       y = "Total Estimated Ridership") +
+  theme_minimal(base_size = 14) +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 18),
+        axis.title = element_text(face = "bold", size = 16),
+        axis.text = element_text(size = 14)) +
+  geom_smooth(method = "lm", se = FALSE)
 ```
 
-7. We finally learned about the logistic loss function also known as binary cross entropy which we represent as the nn_bce() function. This is basically a method of evaluating how well your algorithm models your dataset. If your predictions are totally off, your loss function will output a higher number. If they're pretty good, it'll output a lower number.
+```{R}
+#Buses vs. snow
+ggplot(data = bus_df, aes(x = snow, y = `Buses: Total Estimated Ridership`)) +
+  geom_point(color = "black", alpha = 0.5, size = 2) +
+  scale_color_gradient(low = "red", high = "green") +
+  labs(title = "Buses Ridership vs Snow",
+       x = "Snow (in inches)",
+       y = "Total Estimated Ridership") +
+  theme_minimal(base_size = 14) +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 18),
+        axis.title = element_text(face = "bold", size = 16),
+        axis.text = element_text(size = 14)) +
+  geom_smooth(method = "lm", se = FALSE)
+```
+
+For subway and bus ridership vs. snowdepth:
 
 ```{R}
-nn_bce_loss()
+#Subway
+ggplot(data = sub_df, aes(x = snowdepth, y = `Subways: Total Estimated Ridership`)) +
+  geom_point(color = "#0072B2", size = 2) +
+  labs(title = "Subway Ridership vs Snow Depth",
+       x = "Snow Depth (in inches)",
+       y = "Total Estimated Ridership") +
+  theme_minimal(base_size = 14) +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 18),
+        axis.title = element_text(face = "bold", size = 16),
+        axis.text = element_text(size = 14),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        axis.line = element_line(colour = "#333333")) +
+  scale_y_continuous(labels = scales::comma) +
+  expand_limits(y = 0)
+```
+
+```{R}
+#Bus
+ggplot(data = bus_df, aes(x = snowdepth, y = `Buses: Total Estimated Ridership`)) +
+  geom_point(color = "#0072B2", size = 2) +
+  labs(title = "Buses Ridership vs Snow Depth",
+       x = "Snow Depth (in inches)",
+       y = "Total Estimated Ridership") +
+  theme_minimal(base_size = 14) +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 18),
+        axis.title = element_text(face = "bold", size = 16),
+        axis.text = element_text(size = 14),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        axis.line = element_line(colour = "#333333")) +
+  scale_y_continuous(labels = scales::comma) +
+  expand_limits(y = 0)
 ```

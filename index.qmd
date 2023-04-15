@@ -1,5 +1,5 @@
 ---
-title: "Weekly Summary 9"
+title: "Weekly Summary 12"
 author: "Alvaro Tapia"
 title-block-banner: true
 title-block-style: default
@@ -11,20 +11,26 @@ format: pdf
 ---
 
 
-## Tuesday, March 21
+## Tuesday, April 11
 
 ::: {.callout-important}
 ## TIL
 
-In this weekday, we finished to wrap up what we learned on week 8, and we proceeded to continue our agenda by learning about decision boundary and what it is, then we continued to learned about classification accuracy and confusion matrix where we did some coding to represent exactly how they look like and to understand ther main purpose. And with that we concluded the class. It is important to note that at the end we talked a little bit about Multinomial Logistic regression but we mainly touch that topic on the next class.
+In this weekday, we didn't make any recap, we moved forward to reading the datasets that we were going to use for today's class. We first, learned how to change variables into integers for later usage. We then learned how to use benchmark for logistic regression. We created a new Neural Net Model nad we fitted it using Luz. We finally talked about DataLoaders and a little bit amout Image Classication.
 
 Today we learned the following concepts:
 
-1. Decision boundary 
+1. Learned how to change the variables of a column in a dataset to binary integers.
 
-1. Classification accuracy
+1. Understood how to use Benchmark in Logistic Regression
 
-1. Confusion matrix
+1. Knew how to create a Neural Net Model
+
+1. Learned how to fit the model using Luz Package
+
+1. Understood what are DataLoaders and how they work
+
+1. Finally we covered very briefly Image Classification
 
 :::
 
@@ -46,238 +52,359 @@ library(torch)
 library(caret)
 library(glmnet)
 library(nnet)
+library(rpart)
+library(rpart.plot)
+library(e1071)
+library(luz)
+library(torchvision)
 ```
 
-1. We started by learning about Decision Boundary, this is basically the region of a problem space in which the output label of a classifier is ambiguous. In the following code we can appreciate just the values that are going to be analysed later to create the decision boundary:
+1. We started by learning about how to change the variables of the parameters of the titanic dataset and the breast cancer dataset. For the purpose of this summary I will be only running the brast cancer dataset to run all the other code.
+
+Titanic Dataset
 
 ```{R}
-library(class)
-X <- t(replicate(100, runif(2)))
-y <- ifelse(apply(X, 1, \(x)sum(x^1.3)) + 0.1 * rnorm(500) <= 1, 0, 1) %>% as.factor()
-col <- ifelse(y == 0, "blue", "red")
+# url <- "https://web.stanford.edu/class/archive/cs/cs109/cs109.1166/stuff/titanic.csv"
 
-plot(X[,1], X[,2], col=col)
+# df <- read_csv(url) %>%
+#     mutate_if(\(x) is.character(x), asfactor) %>%
+#     mutate(y = Survived) %>%
+#     select(-c(Name, Survived)) %>%
+#     (\(x) {
+#       names(x) <- tolower(names(x))
+#       x
+#     })
+# df %>% head
+```
+
+Breast cancer dataset
+
+```{R}
+url <- "https://archive.ics.uci.edu/ml/machine-learning-databases/breast-cancer-wisconsin/wdbc.data"
+
+col_names <- c("id", "diagnosis", paste0("feat", 1:30))
+
+df <- read_csv(
+        url, col_names, col_types = cols()
+    ) %>%
+    select(-id) %>%
+    mutate(y = ifelse(diagnosis == "M", 1, 0)) %>%
+    select(-diagnosis)
+
+df %>% head
+```
+
+After that, we understood how to train and test split the dataset using k as 5.
+
+Train/test split
+
+```{R}
+k <- 5
+
+test_ind <- sample(
+  1:nrow(df),
+  floor(nrow(df) / k),
+  replace=FALSE
+)
 ```
 
 ```{R}
-df <- data.frame(y=y, x1=X[,1], x2=X[,2])
-model <- glm(y ~ ., df, family=binomial())
-summary(model)
+df_train <- df[-test_ind, ]
+df_test  <- df[test_ind, ]
+
+nrow(df_train) + nrow(df_test) == nrow(df)
 ```
 
-2. Later, we learned about Classification accuracy which is the ratio of number of correct predictions to the total number of input samples.
-
-Code used to better understand the topic:
+2. We then learned about using Benchmark with Logistic Regression, which is basically using the Logistic Regression algorithm as a baseline or reference model to compare the performance of other machine learning models or algorithms. We can represent this in the following code:
 
 ```{R}
-xnew <- data.frame(
-  x1 = rep(seq(0, 1, length.out=50), 50),
-  x2 = rep(seq(0, 1, length.out=50), each = 50)
+fit_glm <- glm(
+    y ~ ., 
+    df_train %>% mutate_at("y", factor), 
+    family = binomial()
 )
 
-prob <- predict(model, xnew, type="response")
-decision <- ifelse(prob < 0.5, "blue", "red")
+glm_test <- predict(
+    fit_glm, 
+    df_test,
+    output = "response"
+)
 
-plot(xnew[,1], xnew[,2], col=decision, pch=22)
-points(X[,1], X[,2], col=col)
+glm_preds <- ifelse(glm_test > 0.5, 1, 0)
+table(glm_preds, df_test$y)
 ```
 
-3. Then, we learned about Confusion Matrix which presents a table layout of the different outcomes of the prediction and results of a classification problem and helps visualize its outcomes:
+3. After that, we learned the main topic of this class, which is creating a Neural Net Model. This is known as a simplified model of the way the human brain processes information. We understood that it works by simulating a large number of interconnected processing units that resemble abstract versions of neurons.
 
 ```{R}
-idx <- sample(1:nrow(df), 50)
-train <- df[-idx, ]
-test <- df[idx, ]
+NNet <- nn_module(
+  initialize = function(p, q1, q2, q3) {
+    self$hidden1 <- nn_linear(p, q1)
+    self$hidden2 <- nn_linear(q1, q2)
+    self$hidden3 <- nn_linear(q2, q3)
+    self$output <- nn_linear(q3, 1)
+    self$activation <- nn_relu()
+    self$sigmoid <- nn_sigmoid()
+  },
 
-model <- glm(y~., train, family=binomial())
-probs <- predict(model, test, type="response")
+  forward = function(x) {
+    x %>%
+      self$hidden1() %>% self$activation() %>%
+      self$hidden2() %>% self$activation() %>%
+      self$hidden3() %>% self$activation() %>%
+      self$output() %>% self$sigmoid()
+  }
+)
 ```
 
 ```{R}
-predicted <- ifelse(probs < 0.5, 0, 1)
-expected <- test$y
-
-table(predicted, expected)
+NNet(p=2,q1=2,q2=2,q3=10)
 ```
 
-This also helps us notice if there are any false postivies and viceversa. 
+4. We then learned how to fit this model using luz and we also understood how to change the variables of a factor as binary variables. We only use this code for the Titanic Dataset.
 
 ```{R}
-caret::confusionMatrix(data=as.factor(predicted), reference = as.factor(expected))
+#Only to be used when having to change the variables of a factor as binary variables
+#Used when working with the Titanic Dataset
+M <- model.matrix(y ~ 0 + ., data = df_train)
 ```
 
-This shows the accuracy, the p-value, and CI as the most important ones. And with that, it is the end of logistic regression where we learned how to train models.
+```{R}
+# fit_nn <- NNet %>%
+# #Setting the model
+#     setup(
+#       loss = nn_bce_loss(),
+#       optimizer = optim_rmsprop,
+#       metrics = list(
+#         luz_metric_accuracy()
+#       )
+#     ) %>%
+# #Setting the hyperparameters
+#     set_hparams(p=150,q1=50, q2=30, q3=20) %>%
+#     set_opt_hparams(lr=0.01) %>%
+# #Fitting the model
+#     fit(
+#       data=list(
+#         df_train %>%
+#           select(-y) %>%
+#           as.matrix,
+#         df_train %>%
+#           select(y) %>%
+#           as.matrix
+#       ),
+#       valid_data=list(
+#         df_train %>%
+#           select(-y) %>%
+#           as.matrix,
+#         df_train %>%
+#           select(y) %>%
+#           as.matrix
+#       ),
+#       epochs=50,
+#       verbose=TRUE
+#     )
+
+fit_nn <- NNet %>%
+    #
+    # Setup the model
+    #
+    setup(
+        loss = nn_bce_loss(),
+        optimizer = optim_adam, 
+        metrics = list(
+            luz_metric_accuracy()
+        )
+    ) %>% 
+    #
+    # Set the hyperparameters
+    #
+    set_hparams(p=ncol(M), q1=256, q2=128, q3=64) %>% 
+    set_opt_hparams(lr=0.005) %>% 
+    #
+    # Fit the model
+    #
+    fit(
+        data = list(
+            model.matrix(y ~ 0 + ., data = df_train),
+            df_train %>% select(y) %>% as.matrix
+        ),
+        valid_data = list(
+            model.matrix(y ~ 0 + ., data = df_test),
+            df_test %>% select(y) %>% as.matrix
+        ),
+        epochs = 50, 
+        verbose = TRUE
+    )
+```
+
+Plotting the results
+
+```{R}
+plot(fit_nn)
+```
+
+After that, we learned how to make predictinos using these plots
+
+```{R}
+nn_test <- predict(
+    fit_nn, 
+    model.matrix(y ~ . - 1, data = df_test)
+)
+nn_preds <- ifelse(nn_test > 0.5, 1, 0)
+
+table(nn_preds, df_test$y)
+```
+
+5. Then, we learned about DataLoaders, these are a key component in the machine learning pipeline. Their main purpose is to handle loading and preprocessing data in a way that is efficient for training and evaluating models. They make it easier to work with large datasets in smaller chunks.
+
+We learned that they are very efficient and people should use it because they have:
+
+-Efficient memory management by reducing memory usage
+-Parallelism by supporting asynchronous data loading for faster processing
+-Preprocessing by applying data transformations during training and evaluation
+-Flexibility by easily switching between different datasets
+-Standarization by having consistent data formats accross various ML projects
+
+```{R}
+transform <- function(x) x %>% 
+    torch_tensor() %>% 
+    torch_flatten() %>% 
+    torch_div(255)
+```
+
+```{R}
+dir <- "./mnist"
+
+train_ds <- mnist_dataset(
+    root = dir,
+    train = TRUE,
+    download = TRUE,
+    transform = transform
+)
+test_ds <- mnist_dataset(
+    root = dir,
+    train = FALSE,
+    download = TRUE,
+    transform = transform
+)
+```
+
+Identify an imagine and creating it using dataloaders
+
+```{R}
+options(repr.plot.width=10, repr.plot.height=10)
+
+i <- sample(1:length(train_ds), 1)
+x <- train_ds$data[i, ,] %>% t
+
+image(x[1:28, 28:1], useRaster=TRUE, axes=FALSE, col=gray.colors(1000), main = train_ds$targets[i]-1 )
+```
+
+6. We finally talked a little bit about Image Classification an how to use machine learning to classify an image of a number into an actual number.
 
 
-## Thursday, March 23
+## Thursday, April 13
 
 ::: {.callout-important}
 ## TIL
 
-In this weekday we learned a lot of things. First, we started the class with identifying the differences between logistic regression and multinomial logistic regression focusing more on the last one. Then, we learned about the grid of decision boundary. After that me moved on by learining about decision trees and their classification where we also learned how to code them. Then, we understood a subtopic called suport vector machine to finally learn about neural networks but we will focus on that more next week.
+In this weekday we learned a lot of things. First, we talked about very briefly about Homework 5 and also about binary classification to learn its main goal. After that, we moved forward to the main topic which was Image Classification where we talked about it more in depth in this clase and we learned what it is and its main purpose. Along with that we understood how to generate predictions with that and also about using soft-max. We then talked about Unsupervised learning and we understood how important they are, when we should use it, and more. Finally, we studied more in depth about using unsupervised learning when using Principal Component Analysis in order to produce a low dimensional representation for a dataset.
 
-Today, I learnt the following concepts in class:
+1. Talked about the Hw5 and understood binary classification as well
 
-1. Multinomial logistic regression
+1. Learned about Image Classification entirely
 
-1. Define the grid of decision boundary
+1. Learned why, how, and when, Unsupervised learning is important
 
-1. Classification (decision) tree
+1. Undersood how to use Principal Component Analysis
 
-1. Suport Vector Machine
-
-1. Generalize using a neural network with one hidden layer
 :::
 
-1. First, we learned about the differences of logistic regression and multinomial logistic regression. For example, when you want to interprete the relative risk of deaseases or not deseases the goal is to conclude some relationship between the results. It should be noted that we learned that Multinomial Logistic regression is 
+::: {.callout-warning}
 
-Below I'll use some code implemented on class as an example 1.3 in order to show the topics learned described above:
+The code that is commented out is code that couldn't be ran because the professor didn't provide the dataframe
+
+:::
+
+1. We first started the class by talking a little bit about binary classification, where we understood that its main goal is to predict one of two possible outcomes for a given input, where it basically categorizes new observations into one of two classes.
+
+2. We then continued studying what we learned at the end of the class on Tuesday which is predicting what the digits of the images presented are. This concept is called Image Classification, which technically it is a supervised learning problem: define a set of target classes (objects to identify in images), and train a model to recognize them using labeled example photos. In addition to that, we understood that we can use optimization for the creation of loops. We used the following code as an example of what we learned:
 
 ```{R}
-sample(1:3, size = 1000, replace = TRUE, prob = c(0.8,0.1,0.1))
+train_dl <- dataloader(train_ds, batch_size = 1024, shuffle = TRUE)
+test_dl <- dataloader(test_ds, batch_size = 1024)
 ```
 
-```{R}
-b <- c(-5, 0 ,5)
-prob_function = \(x) exp(b*x) / sum(exp(b*x))
-x <- rnorm(100)
-y <- c()
-for (i in 1:length(x)){
-  y[i] <- sample(0:2, 1, prob = prob_function(x[i]))
-}
-cbind(x, y) %>% head
-```
-
-Then we learned how to choose the category as 1:
+We learned how to generate the code to make the predictions
 
 ```{R}
-df <- data.frame(x=x, y=as.factor(y))
-df$y <- relevel(df$y, ref="1")
-df$y
-```
 
-2. After that, we learned how to predict a class using logistic regression model, and we also learned about defining the grid of decision boundary. This can be represented in the following coding.
-
-This predicts what class is gonna be using logistic regression model:
-
-```{R}
-n <- 250
-X <- t(replicate(n, 2 *runif(2) - 1))
-y <- ifelse(apply(X, 1, \(x) sum(sign(x + 0.01 * rnorm(2)))) != 0, 0, 1) %>% as.factor()
-
-col <- ifelse(y == 0, "blue", "red")
-plot(X[,1], X[,2], col=col, pch=19)
-```
-
-```{R}
-df <- data.frame(y=y, x1=X[, 1], x2=X[, 2])
-model <- glm(y ~ x1 + x2, df, family=binomial())
-f_logistic = \(x) predict(model, data.frame(x1=x[,1], x2=x[,2]), type="response")
-```
-
-Defining the grid of decision boundary
-
-```{R}
-xnew <- cbind(
-  rep(seq(-1.1, 1.1, length.out=50), 50),
-  rep(seq(-1.1, 1.1, length.out=50), each = 50)
-)
-```
-
-Plotting the decision boundary
-
-```{R}
-plt <- function(f, x){
-  plot(x[, 1], x[, 2], col=ifelse(f(x) < 0.5, "blue", "red"), pch=22)
-  points(df$x1, df$x2, col=ifelse(y == "0", "blue", "red"), pch=19)
-}
-
-overview <- function(f){
-  predicted <- ifelse(f(df[, -1]) < 0.5, 0, 1)
-  actual <- df[, 1]
-  table(predicted, actual)
-}
-```
-
-This displays the decision boundary with logistric regression model but we learned that the following grid doesnt make sense since we are supposed to have blue on top right and bottom left so the main goal is to find a method to have the right selected data.
-
-```{R}
-plt(f_logistic, xnew)
-```
-
-
-3. Later on, we learned about Classification (decision) tree. This is commonly used in machine learning to predict catergorical outcomes. They are hierarchical model that recursively partions the data into smaller datasets based on the most information features, and each partion is associated with a class label.
-
-With this, we also learned how to use the packages rpart.plot and rpart in order to create decision tress:
-
-```{R}
-library(rpart)
-library(rpart.plot)
-
-dtree <- rpart(y ~ x1 + x2, df, method="class")
-rpart.plot(dtree)
-```
-
-Then we predicted the values for the decision tree to later create the actual decision tree.
-```{R}
-predict(dtree, data.frame(x1=xnew[,1], x2=xnew[,2]), type="class")
-```
-
-
-4. Finally we learned about using Support vector machine, which are data points that are closer to the hyperplane and influence the position and orientation of the hyperplane. Using these support vectors, we maximize the margin of the classifier. 
-
-```{R}
-#This wil display something similar to a diamond
-n <- 750
-X <- t(replicate(n, 2 * runif(2) - 1))
-y <- ifelse(apply(X, 1, \(x) sum(abs(x))) + 0.1 * rnorm(n) <= 1, 0, 1) %>% as.factor()
-col <- ifelse(y == 0, "blue", "red")
-df <- data.frame(y=y, x1=X[, 1], x2=X[, 2])
-
-plot(X[,1], X[,2], col=col, pch=19)
-```
-
-With this, first we tried using logistic regression to separately correctly but it didn't work, so we proceeded to use classification tree and learn how create them:
-
-```{R}
-dtree <- rpart(y ~ x1 + x2, df, method="class")
-rpart.plot(dtree)
-
-f_dtree <- \(x) as.numeric(predict(dtree, data.frame(x1=x[,1], x2=x[,2]), type = "class")) - 1
-plt(f_dtree, xnew)
-```
-
-Understanding better support vector machine:
-
-```{R}
-library(e1071)
-```
-
-```{R}
-svm_model <- svm(y ~ x1 + x2, df, kernel="sigmoid")
-summary(svm_model)
-```
-
-```{R}
-f_svm <- \(x) predict(svm_model, x) %>% as.numeric() - 1
-plt(f_svm, xnew)
-```
-
-5. At the end of the class, we talked a little bit about neural networks, which is a method in artificial intelligence that teaches computers to process data in a way that is inspired by the human brain.
-
-This is the code we developed to better understand this concept:
-
-```{R}
-module <- nn_module(
-  initialize = function() {
-    self$g <- nn_linear(2, 1)
-    self$h <- nn_sigmoid()
+# Defining the Nerual Net Model for Image Classication
+NNet_10 <- nn_module(
+  initialize = function(p, q1, q2, q3, o) {
+    self$hidden1 <- nn_linear(p, q1)
+    self$hidden2 <- nn_linear(q1, q2)
+    self$hidden3 <- nn_linear(q2, q3)
+    self$OUTPUT <- nn_linear(q3, o)
+    self$activation <- nn_relu()
   },
   forward = function(x) {
     x %>%
-      self$f() %>%
-      self$g() %>%
-      self$h()
+      self$hidden1() %>%
+      self$activation() %>%
+      self$hidden2() %>%
+      self$activation() %>%
+      self$hidden3() %>%
+      self$activation() %>%
+      self$OUTPUT()
   }
 )
 ```
+
+```{R}
+# Fitting the model
+fit_nn <- NNet_10 %>%
+    #
+    # Setup the model
+    #
+    setup(
+        loss = nn_cross_entropy_loss(),
+        optimizer = optim_adam,
+        metrics = list(
+            luz_metric_accuracy()
+        )
+    ) %>%
+    #
+    # Set the hyperparameters
+    #
+    set_hparams(p=28*28, q1=256, q2=128, q3=64, o=10) %>% 
+    #
+    # Fit the model
+    #
+    fit(
+        epochs = 10,
+        data = train_dl,
+        # valid_data = test_dl,
+        verbose=TRUE
+    )
+
+NN10_preds <- fit_nn %>% 
+  predict(test_ds) %>% 
+  torch_argmax(dim = 2) %>%
+  as_array()
+```
+
+We then learned how to use the soft-max function in order to assign decimal probabilities to each class for this multi-class problem.
+
+```{R}
+# probs <- 
+# probs
+# The code created was supposed to be uploaded by the professor but he didn't
+```
+
+After that we learned how confusion matrix works, we used as an example the confusion that the algorithm could have when trying to classify the numbers 4 and 9 because they can be very alike sometimes. 
+
+3. As a second topic, we learned and talked about Unsupervised learning which is something new to us since we have been working mostly with supervised learning methods. We call something unsupervised learning when we don't have acces to the labeled data. In this sense, our main goal would be to understand the relationship between dimension reduction and clustering. We also learned why we would want to use unsupervised learning over supervised learning and usually the main reason is because it will always be easier to obtain unlabeled data as opposed to labaled data. 
+
+
+4.For this class we focused on using Principal Component Analysis which in charge of producing a low dimensional representation for a dataset. The first step for this analysis was to combine normalize the principal component or first component of z1 through a combination of features, and then you keep doing that with later steps. We also understood that what we want to do, is to find a direction that maximizes the values. The code created for this part was supposed to be uploaded before the weekly summary due date but the professor didn't, but this explains almost everything done.

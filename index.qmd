@@ -64,34 +64,33 @@ library(torchvision)
 Titanic Dataset
 
 ```{R}
-# url <- "https://web.stanford.edu/class/archive/cs/cs109/cs109.1166/stuff/titanic.csv"
+url <- "https://web.stanford.edu/class/archive/cs/cs109/cs109.1166/stuff/titanic.csv"
 
-# df <- read_csv(url) %>%
-#     mutate_if(\(x) is.character(x), asfactor) %>%
-#     mutate(y = Survived) %>%
-#     select(-c(Name, Survived)) %>%
-#     (\(x) {
-#       names(x) <- tolower(names(x))
-#       x
-#     })
-# df %>% head
+df <- read_csv(url) %>%
+    mutate_if(\(x) is.character(x), as.factor) %>%
+    mutate(y = Survived) %>%
+    select(-c(Name, Survived)) %>%
+    (\(x) {
+        names(x) <- tolower(names(x))
+        x
+    })
 ```
 
 Breast cancer dataset
 
 ```{R}
-url <- "https://archive.ics.uci.edu/ml/machine-learning-databases/breast-cancer-wisconsin/wdbc.data"
+# url <- "https://archive.ics.uci.edu/ml/machine-learning-databases/breast-cancer-wisconsin/wdbc.data"
 
-col_names <- c("id", "diagnosis", paste0("feat", 1:30))
+# col_names <- c("id", "diagnosis", paste0("feat", 1:30))
 
-df <- read_csv(
-        url, col_names, col_types = cols()
-    ) %>%
-    select(-id) %>%
-    mutate(y = ifelse(diagnosis == "M", 1, 0)) %>%
-    select(-diagnosis)
+# df <- read_csv(
+#         url, col_names, col_types = cols()
+#     ) %>%
+#     select(-id) %>%
+#     mutate(y = ifelse(diagnosis == "M", 1, 0)) %>%
+#     select(-diagnosis)
 
-df %>% head
+# df %>% head
 ```
 
 After that, we understood how to train and test split the dataset using k as 5.
@@ -138,7 +137,7 @@ table(glm_preds, df_test$y)
 
 ```{R}
 NNet <- nn_module(
-  initialize = function(p, q1, q2, q3) {
+  initialize = function(p, q1, q2, q3) {  
     self$hidden1 <- nn_linear(p, q1)
     self$hidden2 <- nn_linear(q1, q2)
     self$hidden3 <- nn_linear(q2, q3)
@@ -146,12 +145,12 @@ NNet <- nn_module(
     self$activation <- nn_relu()
     self$sigmoid <- nn_sigmoid()
   },
-
+    
   forward = function(x) {
-    x %>%
-      self$hidden1() %>% self$activation() %>%
-      self$hidden2() %>% self$activation() %>%
-      self$hidden3() %>% self$activation() %>%
+    x %>% 
+      self$hidden1() %>% self$activation() %>% 
+      self$hidden2() %>% self$activation() %>% 
+      self$hidden3() %>% self$activation() %>% 
       self$output() %>% self$sigmoid()
   }
 )
@@ -161,49 +160,14 @@ NNet <- nn_module(
 NNet(p=2,q1=2,q2=2,q3=10)
 ```
 
-4. We then learned how to fit this model using luz and we also understood how to change the variables of a factor as binary variables. We only use this code for the Titanic Dataset.
+4. We then learned how to fit this model using luz and we also understood how to change the variables of a factor as binary variables
 
 ```{R}
 #Only to be used when having to change the variables of a factor as binary variables
-#Used when working with the Titanic Dataset
 M <- model.matrix(y ~ 0 + ., data = df_train)
 ```
 
 ```{R}
-# fit_nn <- NNet %>%
-# #Setting the model
-#     setup(
-#       loss = nn_bce_loss(),
-#       optimizer = optim_rmsprop,
-#       metrics = list(
-#         luz_metric_accuracy()
-#       )
-#     ) %>%
-# #Setting the hyperparameters
-#     set_hparams(p=150,q1=50, q2=30, q3=20) %>%
-#     set_opt_hparams(lr=0.01) %>%
-# #Fitting the model
-#     fit(
-#       data=list(
-#         df_train %>%
-#           select(-y) %>%
-#           as.matrix,
-#         df_train %>%
-#           select(y) %>%
-#           as.matrix
-#       ),
-#       valid_data=list(
-#         df_train %>%
-#           select(-y) %>%
-#           as.matrix,
-#         df_train %>%
-#           select(y) %>%
-#           as.matrix
-#       ),
-#       epochs=50,
-#       verbose=TRUE
-#     )
-
 fit_nn <- NNet %>%
     #
     # Setup the model
@@ -320,11 +284,6 @@ In this weekday we learned a lot of things. First, we talked about very briefly 
 
 :::
 
-::: {.callout-warning}
-
-The code that is commented out is code that couldn't be ran because the professor didn't provide the dataframe
-
-:::
 
 1. We first started the class by talking a little bit about binary classification, where we understood that its main goal is to predict one of two possible outcomes for a given input, where it basically categorizes new observations into one of two classes.
 
@@ -399,12 +358,21 @@ We then learned how to use the soft-max function in order to assign decimal prob
 ```{R}
 # probs <- 
 # probs
-# The code created was supposed to be uploaded by the professor but he didn't
+# The code created was supposed to be uploaded by the professor but he didn't include this code
 ```
 
 After that we learned how confusion matrix works, we used as an example the confusion that the algorithm could have when trying to classify the numbers 4 and 9 because they can be very alike sometimes. 
 
 3. As a second topic, we learned and talked about Unsupervised learning which is something new to us since we have been working mostly with supervised learning methods. We call something unsupervised learning when we don't have acces to the labeled data. In this sense, our main goal would be to understand the relationship between dimension reduction and clustering. We also learned why we would want to use unsupervised learning over supervised learning and usually the main reason is because it will always be easier to obtain unlabeled data as opposed to labaled data. 
 
+4.For this class we focused on using Principal Component Analysis which in charge of producing a low dimensional representation for a dataset. The first step for this analysis was to combine normalize the principal component or first component of z1 through a combination of features, and then you keep doing that with later steps and for the qth principal component. These steps are what form the PCA.We also understood that what we want to do, is to find a direction that maximizes the values. We express this process in the following code:
 
-4.For this class we focused on using Principal Component Analysis which in charge of producing a low dimensional representation for a dataset. The first step for this analysis was to combine normalize the principal component or first component of z1 through a combination of features, and then you keep doing that with later steps. We also understood that what we want to do, is to find a direction that maximizes the values. The code created for this part was supposed to be uploaded before the weekly summary due date but the professor didn't, but this explains almost everything done.
+```{R}
+data <- tibble(
+  x1 = rnorm(100, mean = 0, sd = 1),
+  x2 = x1 + rnorm(100, mean = 0, sd = 0.1)
+)
+# With this we'll be able to see the importance of the components
+pca <- princomp(data, cor = TRUE)
+summary(pca)
+```
